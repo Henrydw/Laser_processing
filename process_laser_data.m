@@ -1,5 +1,10 @@
 %% Processsing laser data
 % this is a trial script to try and incorporate the 
 
+%% generate surfaces for spot alignment
+
+
+
+
+%% load laser data for Processing
 % import laser data
-[t_daq,Diode,~,~,x,y,~] = importfile(laserdatafn,laserdata.startrow,laserdata.endrow);
