@@ -47,3 +47,4 @@ SA = pi()*10^2/420^2; % Focal length is 420mm, limiting appature is r=10mm
 Asource = (ImageData.ORIGINAL_PIXEL_SIZE)^2; % Area of source (20um pixel size with 1:1 mag with high speed camera)
 TP = Asource*SA; % Throughput in m^2.strad
 
+
