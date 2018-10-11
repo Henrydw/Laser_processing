@@ -6,7 +6,7 @@
 %% constants:
 
 REF_TEMPERATURE = (293:0.5:5000)';
-
+ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
 
 
 %% imports:
@@ -44,7 +44,9 @@ I = bb_spectrum(WL,T);
 % Calculate amount of light collected via lens
 % Solid_angle = Area_of_lens/(dist_to_object^2)
 SA = pi()*10^2/420^2; % Focal length is 420mm, limiting appature is r=10mm
-Asource = (ImageData.ORIGINAL_PIXEL_SIZE)^2; % Area of source (20um pixel size with 1:1 mag with high speed camera)
+Asource = (ORIGINAL_PIXEL_SIZE)^2; % Area of source (20um pixel size with 1:1 mag with high speed camera)
 TP = Asource*SA; % Throughput in m^2.strad
+
+
 
 
