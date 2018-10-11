@@ -18,7 +18,7 @@ function imagedata = readcih(folderName)
 % Project: Thermal Imaging of metal 3D printing process
 % Date: 12/11/16
 
-fileName=[folderName filesep 'C001H001S0001.cih'];
+fileName=strcat(folderName,filesep,'C001H001S0001.cih');
 fileID = fopen(fileName);
 
 if fileID < 1

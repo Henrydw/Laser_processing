@@ -66,7 +66,7 @@ I = I .* camera_resp; % Camera signal in amps/m wavelength
 
 Itotal = trapz(wl * 10^-9,I,2); % Integrate over wl to get total sensor ampage
 
-%% NOT WORKING - NEED TO GET ColorBit DATA
+%%
 
 % 1 amps(A) is 1 coulomb/s  which is 6.241*10^18 e-/s as a function of elementary charge e-
 % Signal output is amps*6.241e18*exposuretime/(well_capcity)*bitdepth
