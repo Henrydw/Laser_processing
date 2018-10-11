@@ -23,6 +23,10 @@ spectral_response = csvread(path_spectral_response,2,0);
 BPFilter700 = csvread("calibration_data/eff700.csv",2,0);
 BPFilter950 = csvread("calibration_data/eff950.csv",2,0);
 
+% load cih data (camera information header)
+imagedata = readcih("example_data");
+
+
 %% calculations - done for each filter frequency: - currently 700nm
 
 bp_filter = BPFilter700;
@@ -66,8 +70,6 @@ I = I .* camera_resp; % Camera signal in amps/m wavelength
 
 Itotal = trapz(wl * 10^-9,I,2); % Integrate over wl to get total sensor ampage
 
-%%
-
 % 1 amps(A) is 1 coulomb/s  which is 6.241*10^18 e-/s as a function of elementary charge e-
 % Signal output is amps*6.241e18*exposuretime/(well_capcity)*bitdepth
 coloumb = 6.241e18;
@@ -79,3 +81,14 @@ bd = 2^(imagedata.ColorBit) - 1; % 12 bit sensor
 % Note that if temperature range is to be determined, need to
 % multiply by an emissivity value ***
 Itotal = (Itotal * coloumb * ex_time / wc) * bd;
+
+%% Filter Comparison - NOT WORKING YET !!!
+
+%correction factor applied here as camera spectral response curves
+%supplied by manufacturer seem to be out - need to buy/use
+%monochromator to generate own response curves.
+%
+%this needs to be dependant on position!!!!
+            
+% *0.59 - FUDGE FACTOR
+filters_ratio = (filter1.Intensity)./(filter2.Intensity)*0.59;
