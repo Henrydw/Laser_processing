@@ -37,13 +37,3 @@ wl=[(fcentre-fwidth):(fcentre+fwidth)]';
 
 % Create grid of wl and T so we can calculte I as both vary
 [WL, T] = meshgrid(wl,REF_TEMPERATURE);
-
-% Calculate intesity emmitted vs wavelength and tempature
-I = bb_spectrum(WL,T);
-
-% Calculate amount of light collected via lens
-% Solid_angle = Area_of_lens/(dist_to_object^2)
-SA = pi()*10^2/420^2; % Focal length is 420mm, limiting appature is r=10mm
-Asource = (ImageData.ORIGINAL_PIXEL_SIZE)^2; % Area of source (20um pixel size with 1:1 mag with high speed camera)
-TP = Asource*SA; % Throughput in m^2.strad
-
