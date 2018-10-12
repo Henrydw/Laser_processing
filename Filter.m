@@ -23,13 +23,37 @@ spectral_response = csvread(path_spectral_response,2,0);
 BPFilter700 = csvread("calibration_data/eff700.csv",2,0);
 BPFilter950 = csvread("calibration_data/eff950.csv",2,0);
 
-% load cih data (camera information header)
+% load cih data (camera information header) - we are only using ColorBit
 imagedata = readcih("example_data");
 
+%% Calcuate intensity for two filter (700&950nm)
 
-%% calculations - done for each filter frequency: - currently 700nm
+intensity_700 = filter(BPFilter700, imagedata, optical_data, spectral_response,REF_TEMPERATURE, ORIGINAL_PIXEL_SIZE);
+intensity_950 = filter(BPFilter950, imagedata, optical_data, spectral_response,REF_TEMPERATURE, ORIGINAL_PIXEL_SIZE);
 
-bp_filter = BPFilter700;
+%% intensity_ratio
+
+% this will calculate a ratio of intensity, when comparing the light from the two filters
+% the ratios correspond to each of the REF_TEMPERATURE values
+
+%correction factor applied here as camera spectral response curves
+%supplied by manufacturer seem to be out - need to buy/use
+%monochromator to generate own response curves.
+%
+%this needs to be dependant on position!!!!
+            
+% *0.59 - FUDGE FACTOR
+
+intensity_ratio = (intensity_700)./(intensity_950)*0.59;
+
+%% Using the intensity ratio:
+
+% to find the values of 
+
+%% intensity of light after filter - done for each filter frequency:
+
+
+function Itotal = filter(bp_filter, imagedata, optical_data, spectral_response,REF_TEMPERATURE, ORIGINAL_PIXEL_SIZE)
 %calc filter parameters from filter data
 fon=bp_filter(find(bp_filter(:,2)>(0.5*max(bp_filter(:,2))),1,'first'),1);
 foff=bp_filter(find(bp_filter(:,2)>(0.5*max(bp_filter(:,2))),1,'last'),1);
@@ -81,14 +105,5 @@ bd = 2^(imagedata.ColorBit) - 1; % 12 bit sensor
 % Note that if temperature range is to be determined, need to
 % multiply by an emissivity value ***
 Itotal = (Itotal * coloumb * ex_time / wc) * bd;
+end
 
-%% Filter Comparison - NOT WORKING YET !!!
-
-%correction factor applied here as camera spectral response curves
-%supplied by manufacturer seem to be out - need to buy/use
-%monochromator to generate own response curves.
-%
-%this needs to be dependant on position!!!!
-            
-% *0.59 - FUDGE FACTOR
-filters_ratio = (filter1.Intensity)./(filter2.Intensity)*0.59;
