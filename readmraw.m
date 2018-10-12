@@ -25,7 +25,7 @@ function ImageMatrix = readmraw(folderName,ImageData,numimgs,cameraNum)
 % Date created: 01/11/16
 % Latest update: 12/11/16
 
-fileName=[folderName filesep 'C00' int2str(cameraNum) 'H001S0001.mraw'];
+fileName=strcat(folderName,filesep,'C00',int2str(cameraNum),'H001S0001.mraw');
 fileID = fopen(fileName);
 
 % If no file opened, set image array value to 0
