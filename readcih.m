@@ -79,5 +79,7 @@ imagedata.Pixels = Width * Height;
 imagedata.ColorBit = ColorBit;
 imagedata.TotalFrames = Total_Frames;
 imagedata.FrameRate = FrameRate;
+imagedata.folderName = folderName;
+
 
 end
