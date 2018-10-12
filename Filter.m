@@ -12,16 +12,16 @@ ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the
 %% imports:
 
 % ren_cal(.csv):
-path_ren_cal = "calibration_data/ren_cal.csv";
+path_ren_cal = "filter_calibration_data/ren_cal.csv";
 optical_data = csvread(path_ren_cal,2,0);
 
 % spectral_response repsonse of spectral_response:
-path_spectral_response = "calibration_data/SA5_Spectral_Response_Curve.csv";
+path_spectral_response = "filter_calibration_data/SA5_Spectral_Response_Curve.csv";
 spectral_response = csvread(path_spectral_response,2,0);
 
 % band pass filter efficiency curves
-BPFilter700 = csvread("calibration_data/eff700.csv",2,0);
-BPFilter950 = csvread("calibration_data/eff950.csv",2,0);
+BPFilter700 = csvread("filter_calibration_data/eff700.csv",2,0);
+BPFilter950 = csvread("filter_calibration_data/eff950.csv",2,0);
 
 % load cih data (camera information header) - we are only using ColorBit
 imagedata = readcih("example_data");

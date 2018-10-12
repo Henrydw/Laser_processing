@@ -17,8 +17,12 @@
 %load image data - needed to read mraw (NBytesPerFrame, Pixels, Precision,
 % Hight, Width)
 
+% data folder (should contain .mat *1, .cih *2, .mraw *2)
+data_folder = "example_data";
+
+
 % load cih data (camera information header) - creates class: imagedata
-imagedata = readcih("example_data");
+imagedata = readcih(data_folder);
 
 % FROM asset.m NOT findspotfit.m:
 % Specify the precision for reading images
@@ -30,13 +34,15 @@ bits_per_byte = 8;
 % Specify the total bytes packed in a frame
 imagedata.NBytesPerFrame = imagedata.Pixels * bits_per_pixel / bits_per_byte;
 
-%----------------------- Load mraw
+%% --------------------------- image processing
+
+% ----------------------- load mraw
 
 %number of frames being processed in total:
-end_frame = 1000;
+end_frame = imagedata.TotalFrames - 1;
 
 % number to images to be process per block (all at once crashes computer?)
-blockSize = 1000;
+blockSize = end_frame;
 % tnmwfi!!!!
 
 %first and last frame to be loaded
@@ -46,7 +52,7 @@ frange = [0,blockSize];
 IC1=readmraw(imagedata.folderName,imagedata,frange,1);
 IC2=readmraw(imagedata.folderName,imagedata,frange,2);
 
-%----------------------- start actual 
+% ----------------------- prep
 
 % Calculate time vector for images up to speficied end frame
 start_frame = 1;
@@ -106,6 +112,12 @@ for i=1:blockSize
         IC2_p(:,frame_number) = [NaN NaN];
     end
 end
+
+%% ---------------------------------- diode processing
+
+% Read laser data file
+[t_daq,Diode,~,~,x,y,~] = importfile(laserdatafn,laserdata.startrow,laserdata.endrow);
+
 
 
 
