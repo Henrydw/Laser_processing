@@ -31,8 +31,16 @@ bits_per_byte = 8;
 imagedata.NBytesPerFrame = imagedata.Pixels * bits_per_pixel / bits_per_byte;
 
 %----------------------- Load mraw
+
+%number of frames being processed in total:
+end_frame = 1000;
+
+% number to images to be process per block (all at once crashes computer?)
+blockSize = 1000;
+% tnmwfi!!!!
+
 %first and last frame to be loaded
-frange = [0,1000];
+frange = [0,blockSize];
 
 %read in frame from mraw files for each camera
 IC1=readmraw(imagedata.folderName,imagedata,frange,1);
@@ -59,36 +67,46 @@ IC2_p = zeros(2,end_frame);
 % Remove background noise (for images when laser is off (no spot))
 %IC1(IC1 < estimated_noise_cam1) = 0;
 %IC2(IC2 < estimated_noise_cam2) = 0;
+% IN TANDEM WITH: *
 
 %----------------------- finding peaks
 
-%looping variable
-i=1;
+% frame number
+frame_number=1;
 
-% Calculate threshold params for peak finder function
-thresh=(max([min(max(IC1(:,:,i),[],1))  min(max(IC1(:,:,i),[],2))]));
-curF=fblockn+i-1;
-%find some peaks for cam 1
-p = FastPeakFind(IC1(:,:,i),thresh,filt,3,2);
-% Check to see if peaks were found
-% Obtain peak in terms of pixel value (not real size)
-if (size(p) > 0)
+for i=1:blockSize
+    
+    frame_number = frame_number+1;
+    
+    % Calculate threshold params for peak finder function
+    thresh=(max([min(max(IC1(:,:,i),[],1))  min(max(IC1(:,:,i),[],2))]));
+    %find some peaks for cam 1
+    p = FastPeakFind(IC1(:,:,i),thresh,filt,3,2);
+    % Check to see if peaks were found
+    % Obtain peak in terms of pixel value (not real size)
     % Save only coords of first found peak
-    IC1_p(:,curF) = p(1:2);
-else
-    % When no peak found list NaN for coords
-    IC1_p(:,curF) = [NaN NaN];
+    
+%     % *
+%     % if zero, save as NaN - allows frames which do not have laser in them
+%     % to be detected - surely this is already done by the Diode data???
+    %if zero, save as nan
+    if (size(p) > 0)
+        IC1_p(:,frame_number) = p(1:2);
+    else
+        IC1_p(:,frame_number) = [NaN NaN];
+    end
+
+    % Repeat above but for other camera
+    thresh = (max([min(max(IC2(:,:,i),[],1))  min(max(IC2(:,:,i),[],2))]));
+    p = FastPeakFind(IC2(:,:,i),thresh,filt,3,2);
+%     % *
+    if (size(p) > 0)
+        IC2_p(:,frame_number) = p(1:2);
+    else
+        IC2_p(:,frame_number) = [NaN NaN];
+    end
 end
-        
-% Repeat above but for other camera
-thresh = (max([min(max(IC2(:,:,i),[],1))  min(max(IC2(:,:,i),[],2))]));
-        
-p = FastPeakFind(IC2(:,:,i),thresh,filt,3,2);
-if (size(p) > 0)
-    IC2_p(:,curF) = p(1:2);
-else
-    IC2_p(:,curF) = [NaN NaN];
-end
+
 
 
 
