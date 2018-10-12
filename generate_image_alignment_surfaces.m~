@@ -63,7 +63,7 @@ IC2_p = zeros(2,end_frame);
 %----------------------- finding peaks
 
 %looping variable
-i=1;
+i=1
 
 % Calculate threshold params for peak finder function
 thresh=(max([min(max(IC1(:,:,i),[],1))  min(max(IC1(:,:,i),[],2))]));
