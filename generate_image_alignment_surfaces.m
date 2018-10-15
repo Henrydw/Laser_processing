@@ -117,7 +117,7 @@ end
 
 % Read laser data file
 [t_daq,Diode,~,~,x,y,~] = importfile("example_data/100W_400us_100000fps.mat");
-% % 
+% % ipm
 % % % Create a kaiser filter to smooth DAQ data
 % % 
 % % % Hard coded settings

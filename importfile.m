@@ -89,19 +89,27 @@ elseif strfind(filename,'.mat')>0
     %program
     % this is a bit of a bodge, will this cause issues???
     % yup - causing loads of issues.....
-    if ldata.Tinterval > 1e-6
-        ds_ratio= floor(1e-6/ldata.Tinterval);
-        dataArray{:,1}=downsample(T(startRow:endRow*ds_ratio),ds_ratio);
-        dataArray{:,2}=downsample(ldata.A(startRow:endRow*ds_ratio),ds_ratio);
-        dataArray{:,6}=downsample(ldata.B(startRow:endRow*ds_ratio),ds_ratio);
-        dataArray{:,5}=downsample(ldata.C(startRow:endRow*ds_ratio),ds_ratio);
-    else
-        dataArray{:,1}=T(startRow:endRow);
-        %other data channels
-        dataArray{:,2}=ldata.A(startRow:endRow);
-        dataArray{:,6}=ldata.B(startRow:endRow);
-        dataArray{:,5}=ldata.C(startRow:endRow);    
-    end
+% %     if ldata.Tinterval > 1e-6
+% %         ds_ratio= floor(1e-6/ldata.Tinterval);
+% %         dataArray{:,1}=downsample(T(startRow:endRow*ds_ratio),ds_ratio);
+% %         dataArray{:,2}=downsample(ldata.A(startRow:endRow*ds_ratio),ds_ratio);
+% %         dataArray{:,6}=downsample(ldata.B(startRow:endRow*ds_ratio),ds_ratio);
+% %         dataArray{:,5}=downsample(ldata.C(startRow:endRow*ds_ratio),ds_ratio);
+% %     else
+% %         dataArray{:,1}=T(startRow:endRow);
+% %         %other data channels
+% %         dataArray{:,2}=ldata.A(startRow:endRow);
+% %         dataArray{:,6}=ldata.B(startRow:endRow);
+% %         dataArray{:,5}=ldata.C(startRow:endRow);    
+% %     end
+
+
+    dataArray{:,1}=T(startRow:endRow);
+    %other data channels
+    dataArray{:,2}=ldata.A(startRow:endRow);
+    dataArray{:,6}=ldata.B(startRow:endRow);
+    dataArray{:,5}=ldata.C(startRow:endRow);
+
 else
     disp('File format not valid, use .csv of .mat');
 end
