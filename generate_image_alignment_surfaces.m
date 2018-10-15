@@ -143,3 +143,14 @@ lon = lpulse > 0.1; %0.1 seems a good value for 200W pulses
 idxfit1=isfinite(IC1_p(1,:))&lon;
 idxfit2=isfinite(IC2_p(1,:))&lon;
 
+datafilename = "IC_fits";
+
+
+% Call fiting function to find fit values
+% do this only when laser is firing
+IC1_x_fit=findoffsetfit(x_pos(idxfit1),y_pos(idxfit1),IC1_p(1,idxfit1),datafilename,'IC1_x_fit',end_frame);
+IC1_y_fit=findoffsetfit(x_pos(idxfit1),y_pos(idxfit1),IC1_p(2,idxfit1),datafilename,'IC1_y_fit',end_frame);
+IC2_x_fit=findoffsetfit(x_pos(idxfit2),y_pos(idxfit2),IC2_p(1,idxfit2),datafilename,'IC2_x_fit',end_frame);
+IC2_y_fit=findoffsetfit(x_pos(idxfit2),y_pos(idxfit2),IC2_p(2,idxfit2),datafilename,'IC2_y_fit',end_frame);
+
+save(fitfn,'IC1_x_fit','IC1_y_fit','IC2_x_fit','IC2_y_fit');
