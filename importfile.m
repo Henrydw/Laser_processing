@@ -7,8 +7,16 @@ function [Time,Diode,Trig,Sync,x_pos,y_pos,Len] = importfile(filename, startRow,
 %   ENDROW) Reads data from rows STARTROW through ENDROW of text file
 %   FILENAME.
 %
-% Example:
+% .txt Example:
 %   [Time,Diode,Trig,Sync,x_pos,y_pos] = importfile('correction_scan_200W_50us.txt',2, 2000001);
+
+%
+% .m Example:
+%   [Time,Diode,Trig,Sync,x_pos,y_pos] = importfile('correction_scan_200W_50us.m');
+%
+
+%  NB: start and end rows are only needed for .txt files!
+
 %
 %    See also TEXTSCAN.
 
@@ -80,7 +88,8 @@ elseif strfind(filename,'.mat')>0
     %if sample rate is higher that 1MHz, downsample data to speed up
     %program
     % this is a bit of a bodge, will this cause issues???
-    if ldata.Tinterval < 1e-6
+    % yup - causing loads of issues.....
+    if ldata.Tinterval > 1e-6
         ds_ratio= floor(1e-6/ldata.Tinterval);
         dataArray{:,1}=downsample(T(startRow:endRow*ds_ratio),ds_ratio);
         dataArray{:,2}=downsample(ldata.A(startRow:endRow*ds_ratio),ds_ratio);

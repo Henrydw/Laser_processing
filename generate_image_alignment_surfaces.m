@@ -116,12 +116,28 @@ end
 %% ---------------------------------- diode processing
 
 % Read laser data file
-[t_daq,Diode,~,~,x,y,~] = importfile(laserdatafn,laserdata.startrow,laserdata.endrow);
-
-
-
-
-
-
+[t_daq,Diode,~,~,x,y,~] = importfile("example_data/100W_400us_100000fps.mat");
+% % 
+% % % Create a kaiser filter to smooth DAQ data
+% % 
+% % % Hard coded settings
+% % F_PASS = 0; % Pass frequency
+% % F_STOP = 2500; % Stop frequency
+% % RIPPLE = 0.0001; % Max bandpass ripple
+% % % Create filter
+% % dt = t_daq(3) - t_daq(2); % DAQ sample interval
+% % Fs = 1/dt; % Sampling freq
+% % [n, w, beta, ftype] = kaiserord([F_PASS,F_STOP], [1,0], [RIPPLE,RIPPLE], Fs);
+% % b = fir1(n,w,ftype,kaiser(n+1,beta),'noscale');
+% % 
+% % % Filter the data and then get xy mirror pos values at video frame times
+% % y_pos = interp1(t_daq,filtfilt(b,1,y(1:end)),t_frame);
+% % x_pos = interp1(t_daq,filtfilt(b,1,x(1:end)),t_frame);
+% % % Load in laser pulse data and get value at video frame times
+% % lpulse = interp1(t_daq,Diode(1:end),t_frame);
+% % 
+% % 
+% % 
+% % 
 
 
