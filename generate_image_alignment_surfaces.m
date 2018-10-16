@@ -18,7 +18,7 @@
 % Hight, Width)
 
 % data folder (should contain .mat *1, .cih *2, .mraw *2)
-data_folder = "example_data";
+data_folder = "~/Desktop/alignment_calibration_data";
 
 
 % load cih data (camera information header) - creates class: imagedata
@@ -36,28 +36,21 @@ imagedata.NBytesPerFrame = imagedata.Pixels * bits_per_pixel / bits_per_byte;
 
 %% --------------------------- image processing
 
-% ----------------------- load mraw
+% ----------------------- load mraw settings
 
 %number of frames being processed in total:
 end_frame = imagedata.TotalFrames - 1;
 
 % number to images to be process per block (all at once crashes computer?)
-blockSize = end_frame;
+blockSize = 1000;
 % tnmwfi!!!!
-
-%first and last frame to be loaded
-frange = [0,blockSize];
-
-%read in frame from mraw files for each camera
-IC1=readmraw(imagedata.folderName,imagedata,frange,1);
-IC2=readmraw(imagedata.folderName,imagedata,frange,2);
 
 % ----------------------- prep
 
 % Calculate time vector for images up to speficied end frame
 start_frame = 1;
 vdt = 1/imagedata.FrameRate;
-t_frame = (0:(end_frame)) * vdt; %video frame time
+t_frame = (0:(end_frame-1)) * vdt; %video frame time
 t_frame = round(t_frame,9); %round to ns to avoid rounding errors
 
 % Filter for peak (spot finding) function
@@ -79,44 +72,58 @@ IC2_p = zeros(2,end_frame);
 
 % frame number
 frame_number=1;
-
-for i=1:blockSize
-    
-    frame_number = frame_number+1;
-    
-    % Calculate threshold params for peak finder function
-    thresh=(max([min(max(IC1(:,:,i),[],1))  min(max(IC1(:,:,i),[],2))]));
-    %find some peaks for cam 1
-    p = FastPeakFind(IC1(:,:,i),thresh,filt,3,2);
-    % Check to see if peaks were found
-    % Obtain peak in terms of pixel value (not real size)
-    % Save only coords of first found peak
-    
-%     % *
-%     % if zero, save as NaN - allows frames which do not have laser in them
-%     % to be detected - surely this is already done by the Diode data???
-    %if zero, save as nan
-    if (size(p) > 0)
-        IC1_p(:,frame_number) = p(1:2);
+for j=1:blockSize:end_frame
+    % load block
+    %first and last frame to be loaded
+    if frame_number+1+blockSize > end_frame
+        frange = [frame_number+1,end_frame];
+        blockSize=range(frange);
     else
-        IC1_p(:,frame_number) = [NaN NaN];
+        frange = [frame_number+1,frame_number+1+blockSize];
     end
+    
+    %read in frame from mraw files for each camera
+    IC1=readmraw(imagedata.folderName,imagedata,frange,1);
+    IC2=readmraw(imagedata.folderName,imagedata,frange,2);
+    
+    for i=1:blockSize
 
-    % Repeat above but for other camera
-    thresh = (max([min(max(IC2(:,:,i),[],1))  min(max(IC2(:,:,i),[],2))]));
-    p = FastPeakFind(IC2(:,:,i),thresh,filt,3,2);
-%     % *
-    if (size(p) > 0)
-        IC2_p(:,frame_number) = p(1:2);
-    else
-        IC2_p(:,frame_number) = [NaN NaN];
+        frame_number = frame_number+1;
+
+        % Calculate threshold params for peak finder function
+        thresh=(max([min(max(IC1(:,:,i),[],1))  min(max(IC1(:,:,i),[],2))]));
+        %find some peaks for cam 1
+        p = FastPeakFind(IC1(:,:,i),thresh,filt,3,2);
+        % Check to see if peaks were found
+        % Obtain peak in terms of pixel value (not real size)
+        % Save only coords of first found peak
+
+    %     % *
+    %     % if zero, save as NaN - allows frames which do not have laser in them
+    %     % to be detected - surely this is already done by the Diode data???
+        %if zero, save as nan
+        if (size(p) > 0)
+            IC1_p(:,frame_number) = p(1:2);
+        else
+            IC1_p(:,frame_number) = [NaN NaN];
+        end
+
+        % Repeat above but for other camera
+        thresh = (max([min(max(IC2(:,:,i),[],1))  min(max(IC2(:,:,i),[],2))]));
+        p = FastPeakFind(IC2(:,:,i),thresh,filt,3,2);
+    %     % *
+        if (size(p) > 0)
+            IC2_p(:,frame_number) = p(1:2);
+        else
+            IC2_p(:,frame_number) = [NaN NaN];
+        end
     end
 end
 
 %% ---------------------------------- diode processing
 
 % Read laser data file
-[t_daq,Diode,~,~,x,y,~] = importfile("example_data/100W_400us_100000fps.mat");
+[t_daq,Diode,~,~,x,y,~] = importfile('~/Desktop/alignment_calibration_data/cal_run.mat');
 % % ipm
 % Create a kaiser filter to smooth DAQ data
 
@@ -144,7 +151,7 @@ idxfit1=isfinite(IC1_p(1,:))&lon;
 idxfit2=isfinite(IC2_p(1,:))&lon;
 
 datafilename = "IC_fits";
-
+fitfn = "fitfn_file";
 
 % Call fiting function to find fit values
 % do this only when laser is firing
