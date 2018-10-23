@@ -48,7 +48,7 @@ intensity_ratio = (intensity_700)./(intensity_950)*0.59;
 
 %% Using the intensity ratio:
 
-% to find the values of 
+save('intensity_ratio','intensity_ratio')
 
 %% intensity of light after filter - done for each filter frequency:
 

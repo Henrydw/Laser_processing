@@ -4,9 +4,14 @@
 %% Load calibration
 
 % denote folder with data (should contain .mat *1, .cih *2, .mraw *2)
-data_folder = 'example_data';
+%data_folder = 'example_data';
+data_folder = "A:\Imperial College London\Hooper, Paul A - spots_v3\100W_6400us_100000fps";
+mat_file_name = '\100W_6400us_100000fps.mat';
 % load alignment surfaces
 load('fitfn_file');
+
+load('intensity_ratio.mat')
+DEFAULT_FILTER_THRESHOLD = 100;
 
 % load cih data (camera information header) - creates class: imagedata
 imagedata = readcih(data_folder);
@@ -40,7 +45,7 @@ t_frame = round(t_frame,9); %round to ns to avoid rounding errors
 
 %% load laser data for Processing
 % Read laser data file:
-[t_daq,Diode,~,~,x,y,~] = importfile('example_data/100W_400us_100000fps.mat');
+[t_daq,Diode,~,~,x,y,~] = importfile(strcat(data_folder,mat_file_name));
 
 
 % Create a kaiser filter to smooth DAQ data:
@@ -65,7 +70,7 @@ x_pos = interp1(t_daq,filtfilt(b,1,x(1:end)),t_frame,'linear','extrap');
 % frame number
 frame_number=1;
 %stored images 3D array
-processed_images = [];
+processed_images = zeros(128,128,imagedata.TotalFrames);
 
 % load blocks loop
 for j=1:blockSize:end_frame
@@ -105,11 +110,22 @@ for j=1:blockSize:end_frame
         IC2f=interp2(X2,Y2,double(IC2(:,:,i)),X,Y);
         
 %%%%% RATIO TO TEMP NEEDS TO BE RE_MADE %%%%%%%%%        %calculate temp image from two images
-        [imgtemp,immultiply] = ratio2temp(tempimage.RefIntensityRatio,IC1f,IC2f);
+        % Find ratio between camera images intensities
+        imratio = IC1f./IC2f;
+        imratio(isnan(imratio)) = 0;
+        imratio(isinf(imratio)) = 0;
         
+        image_temp = interp1(intensity_ratio,REF_TEMPERATURE,imratio);
+        image_temp(isnan(image_temp)) = 293;
         
+        % Multiply two camera image intensities together and compare against a
+        % threshold value. If lower, it means the pixel is noisy and will be
+        % registered as 293K
+        immultiply = IC1f .* IC2f;
+        image_temp(immultiply < DEFAULT_FILTER_THRESHOLD) = 293;
+
         % save image to file (append?? - cannot be stored in memory)
         % for now simply append - to 3D array (small enough for sample data
-        processed_images = [processed_images, imgtemp];
+        processed_images(:,:,frame_number) = image_temp;
     end
 end
