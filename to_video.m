@@ -5,17 +5,17 @@
 %3dmatrix data to be made into a video
 % first to axes are frame dimensions, 3rd axis is frame number.
 % (pixel x, pixel y, frame number)
-function to_video()
-v = VideoWriter('peaks.avi');
+function to_video(file_name,matrix)
+v = VideoWriter(file_name);
 open(v);
 %generate data
-Z = peaks;
-surf(Z); 
+imagesc(matrix(:,:,1)); 
 axis tight manual 
 set(gca,'nextplot','replacechildren');
+colorbar
 %create frames and write to file
-for k = 1:20 
-   surf(sin(2*pi*k/20)*Z,Z)
+for k = 1:length(matrix) 
+   imagesc(matrix(:,:,k));
    frame = getframe;
    writeVideo(v,frame);
 end
