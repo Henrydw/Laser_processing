@@ -129,34 +129,5 @@ for j=1:blockSize:end_frame
         % save image to file (append?? - cannot be stored in memory)
         % for now simply append - to 3D array (small enough for sample data
         processed_images(:,:,frame_number) = image_temp;
-        
-        midspottemp(frame_number) = findMidSpotTemp(imgtemp);
-        meanmidspottemp(frame_number) = findMeanMidSpotTemp(imgtemp);
-        peakspottemp(frame_number) = findPeakTemp(imgtemp);
-        spotsize(frame_number) = findSpotSize(immultiply);
-        
     end
-end
-
-
-function midtemp = findMidSpotTemp(imgtemp)
-    %midtemp = imgtemp(size(imgtemp,1)/2,size(imgtemp,2)/2);
-    midtemp = imgtemp(38,72);
-end
-
-% Find spot temperature at middle position
-function meanmidtemp = findMeanMidSpotTemp(imgtemp)
-    %midtemp = imgtemp(size(imgtemp,1)/2,size(imgtemp,2)/2);
-    meanmidtemp = mean(mean(imgtemp(37:39,71:73)));
-end
-
-% Find spot size
-function spotsize = findSpotSize(immultiply)
-%need to check what SIZE_SCALE is
-spotsize = sum(sum(immultiply > DEFAULT_FILTER_THRESHOLD)) * Spot.SIZE_SCALE;
-end
-
-% Find peak temp in image
-function peaktemp = findPeakTemp(imgtemp)
-peaktemp = max(max(imgtemp));
 end
