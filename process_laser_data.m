@@ -1,19 +1,33 @@
 %% Processsing laser data
 % this is a trial script to try and incorporate the 
 
+function [t_frame, spotradius, meanmidspottemp]=process_laser_data(folder_path,file_name)
+%% Hard Coded stuff
+
+DEFAULT_FILTER_THRESHOLD = 100;
+REF_TEMPERATURE = (293:0.5:5000)';
+
+% from IMAGE DATA class
+% Temperature image relative to camera image scale
+RESIZED_SCALE = 4;
+% In micrometer
+ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
+RESIZED_PIXEL_SIZE = ORIGINAL_PIXEL_SIZE / RESIZED_SCALE;
+%from SPOT class
+SIZE_SCALE = (RESIZED_PIXEL_SIZE * 1e3).^2;
+
 %% Load calibration
 
 % denote folder with data (should contain .mat *1, .cih *2, .mraw *2)
 %data_folder = 'example_data';
-data_folder = "A:\Imperial College London\Hooper, Paul A - spots_v3\100W_6400us_100000fps";
-mat_file_name = '\100W_6400us_100000fps.mat';
+%data_folder = "A:\Imperial College London\Hooper, Paul A - spots_v3C";
+data_folder = strcat(folder_path,file_name);
+%mat_file_name = '\100W_6400us_100000fps.mat';
+mat_file_name = strcat(file_name, '.mat');
 % load alignment surfaces
 load('fitfn_file');
 
 load('intensity_ratio.mat')
-DEFAULT_FILTER_THRESHOLD = 100;
-REF_TEMPERATURE = (293:0.5:5000)';
- 
 
 % load cih data (camera information header) - creates class: imagedata
 imagedata = readcih(data_folder);
@@ -45,7 +59,7 @@ t_frame = round(t_frame,9); %round to ns to avoid rounding errors
 [X,Y]=meshgrid(1:imagedata.Width,1:imagedata.Height);
 
 
-%% load laser data for Processing
+%% load Laser data for Processing
 % Read laser data file:
 [t_daq,Diode,~,~,x,y,~] = importfile(strcat(data_folder,mat_file_name));
 
@@ -67,12 +81,17 @@ y_pos = interp1(t_daq,filtfilt(b,1,y(1:end)),t_frame,'linear','extrap');
 x_pos = interp1(t_daq,filtfilt(b,1,x(1:end)),t_frame,'linear','extrap');
 
 
-%% load image data for Processing
+%% load Image data for Processing
 
 % frame number
 frame_number=1;
 %stored images 3D array
 processed_images = zeros(128,128,imagedata.TotalFrames);
+%1d vectors of spot stats in each from
+midspottemp = zeros(1,end_frame);
+meanmidspottemp = zeros(1,end_frame);
+peakspottemp = zeros(1,end_frame);
+spotradius = zeros(1,end_frame);
 
 % load blocks loop
 for j=1:blockSize:end_frame
@@ -130,12 +149,13 @@ for j=1:blockSize:end_frame
         % for now simply append - to 3D array (small enough for sample data
         processed_images(:,:,frame_number) = image_temp;
         
-        midspottemp(frame_number) = findMidSpotTemp(imgtemp);
-        meanmidspottemp(frame_number) = findMeanMidSpotTemp(imgtemp);
-        peakspottemp(frame_number) = findPeakTemp(imgtemp);
-        spotsize(frame_number) = findSpotSize(immultiply);
+        midspottemp(frame_number) = findMidSpotTemp(image_temp);
+        meanmidspottemp(frame_number) = findMeanMidSpotTemp(image_temp);
+        peakspottemp(frame_number) = findPeakTemp(image_temp);
+        spotradius(frame_number) = findSpotRadius(image_temp);
         
     end
+end
 end
 
 
@@ -153,10 +173,38 @@ end
 % Find spot size
 function spotsize = findSpotSize(immultiply)
 %need to check what SIZE_SCALE is
-spotsize = sum(sum(immultiply > DEFAULT_FILTER_THRESHOLD)) * Spot.SIZE_SCALE;
+DEFAULT_FILTER_THRESHOLD = 100;
+% from IMAGE DATA class
+% Temperature image relative to camera image scale
+RESIZED_SCALE = 4;
+% In micrometer
+ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
+RESIZED_PIXEL_SIZE = ORIGINAL_PIXEL_SIZE / RESIZED_SCALE;
+%from SPOT class
+SIZE_SCALE = (RESIZED_PIXEL_SIZE * 1e3).^2;
+spotsize = sum(sum(immultiply > DEFAULT_FILTER_THRESHOLD)) * SIZE_SCALE;
 end
 
 % Find peak temp in image
 function peaktemp = findPeakTemp(imgtemp)
 peaktemp = max(max(imgtemp));
+end
+
+
+% Find spot size
+function spotradius = findSpotRadius(tempimg)
+%need to check what SIZE_SCALE is
+MELT_THRESHOLD = 1370;
+% from IMAGE DATA class
+% Temperature image relative to camera image scale
+RESIZED_SCALE = 4;
+% In micrometer
+ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
+RESIZED_PIXEL_SIZE = ORIGINAL_PIXEL_SIZE / RESIZED_SCALE;
+%from SPOT class
+SIZE_SCALE = (RESIZED_PIXEL_SIZE * 1e3).^2;
+
+spotarea = sum(sum(tempimg > MELT_THRESHOLD)) * SIZE_SCALE;
+
+spotradius = sqrt(spotarea/pi);
 end
