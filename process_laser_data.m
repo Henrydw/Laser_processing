@@ -1,7 +1,26 @@
 %% Processsing laser data
-% this is a trial script to try and incorporate the 
+% this is a list of function primalrily concerned with processing image
+% data and returing the paramters from each image analysed.
 
-function [t_frame, spotradius, meanmidspottemp]=process_laser_data(folder_path,file_name)
+% Inputs:
+
+% folder_path - path of folder where the data folder is contained (it is
+% assumed that the exact folder with the data will be at the end of this 
+% path - eg: 'A:\Imperial College London\Hooper, Paul A - spots_v3'
+
+% folder_name - name of the exact folder with the data in it and also the
+% name of the .mat file which should contain the DAQ data - eg: 
+% '100W_6400us_100000fps'
+
+% NB this folder should contain the following:
+% 100W_6400us_100000fps.mat - DAQ data
+% C001H001S0001.cih - camera 1 meta data
+% C002H001S0001.cih - camera 2 meta data
+% C001H001S0001.mraw - camera 1 recording
+% C002H001S0001.mraw - camera 2 recording
+
+
+function [t_frame, spotradius, meanmidspottemp]=process_laser_data(folder_path,folder_name)
 %% Hard Coded stuff
 
 DEFAULT_FILTER_THRESHOLD = 100;
@@ -21,9 +40,9 @@ SIZE_SCALE = (RESIZED_PIXEL_SIZE * 1e3).^2;
 % denote folder with data (should contain .mat *1, .cih *2, .mraw *2)
 %data_folder = 'example_data';
 %data_folder = "A:\Imperial College London\Hooper, Paul A - spots_v3C";
-data_folder = strcat(folder_path,file_name);
-%mat_file_name = '\100W_6400us_100000fps.mat';
-mat_file_name = strcat(file_name, '.mat');
+data_folder = strcat(folder_path,'\',folder_name);
+%mat_folder_name = '\100W_6400us_100000fps.mat';
+mat_folder_name = strcat('\',folder_name,'.mat');
 % load alignment surfaces
 load('fitfn_file');
 
@@ -61,7 +80,7 @@ t_frame = round(t_frame,9); %round to ns to avoid rounding errors
 
 %% load Laser data for Processing
 % Read laser data file:
-[t_daq,Diode,~,~,x,y,~] = importfile(strcat(data_folder,mat_file_name));
+[t_daq,Diode,~,~,x,y,~] = importfile(strcat(data_folder,mat_folder_name));
 
 
 % Create a kaiser filter to smooth DAQ data:
