@@ -11,19 +11,29 @@
 % ISSUE: if the melt pools cannot be properly aligned then the ratio 
 % (and consequnetly the temperature) cannot be ascertained
 
-%% Inputs:
+% Inputs:
 
-%-----------------------
-%load image data - needed to read mraw (NBytesPerFrame, Pixels, Precision,
-% Hight, Width)
+% folder_path - path of folder where the data folder is contained (it is
+% assumed that the exact folder with the data will be at the end of this 
+% path - eg: 'A:\Imperial College London\Hooper, Paul A - spots_v3'
 
-% data folder (should contain .mat *1, .cih *2, .mraw *2)
-data_folder = "A:\Imperial College London\Hooper, Paul A - spots_v3\100W_6400us_100000fps";
-mat_file_name = '\100W_6400us_100000fps.mat';
+% folder_name - name of the exact folder with the data in it and also the
+% name of the .mat file which should contain the DAQ data - eg: 
+% '100W_6400us_100000fps'
+
+% NB this folder should contain the following:
+% 100W_6400us_100000fps.mat - DAQ data
+% C001H001S0001.cih - camera 1 meta data
+% C002H001S0001.cih - camera 2 meta data
+% C001H001S0001.mraw - camera 1 recording
+% C002H001S0001.mraw - camera 2 recording
+
+
+function [fits]=generate_image_alignment_surfaces(folder_path,folder_name)
 
 
 % load cih data (camera information header) - creates class: imagedata
-imagedata = readcih(data_folder);
+imagedata = readcih(strcat(folder_path,'\',folder_name));
 
 % FROM asset.m NOT findspotfit.m:
 % Specify the precision for reading images
@@ -73,8 +83,8 @@ IC2_p = zeros(2,end_frame);
 %% ---------------------------------- diode processing
 
 % Read laser data file
-[t_daq,Diode,~,~,x,y,~] = importfile(strcat(data_folder,mat_file_name));
-% % ipm
+[t_daq,Diode,~,~,x,y,~] = importfile(strcat(folder_path,'\',folder_name,'\',folder_name,'.mat'));
+
 % Create a kaiser filter to smooth DAQ data
 
 % Hard coded settings
@@ -184,13 +194,11 @@ idxfit1=isfinite(IC1_p(1,:))&lon;
 idxfit2=isfinite(IC2_p(1,:))&lon;
 
 datafilename = "IC_fits";
-fitfn = "fitfn_file";
-
 % Call fiting function to find fit values
 % do this only when laser is firing
-IC1_x_fit=findoffsetfit(x_pos(idxfit1),y_pos(idxfit1),IC1_p(1,idxfit1),datafilename,'IC1_x_fit',end_frame);
-IC1_y_fit=findoffsetfit(x_pos(idxfit1),y_pos(idxfit1),IC1_p(2,idxfit1),datafilename,'IC1_y_fit',end_frame);
-IC2_x_fit=findoffsetfit(x_pos(idxfit2),y_pos(idxfit2),IC2_p(1,idxfit2),datafilename,'IC2_x_fit',end_frame);
-IC2_y_fit=findoffsetfit(x_pos(idxfit2),y_pos(idxfit2),IC2_p(2,idxfit2),datafilename,'IC2_y_fit',end_frame);
+fits.IC1_x=findoffsetfit(x_pos(idxfit1),y_pos(idxfit1),IC1_p(1,idxfit1),datafilename,'IC1_x_fit',end_frame);
+fits.IC1_y=findoffsetfit(x_pos(idxfit1),y_pos(idxfit1),IC1_p(2,idxfit1),datafilename,'IC1_y_fit',end_frame);
+fits.IC2_x=findoffsetfit(x_pos(idxfit2),y_pos(idxfit2),IC2_p(1,idxfit2),datafilename,'IC2_x_fit',end_frame);
+fits.IC2_y=findoffsetfit(x_pos(idxfit2),y_pos(idxfit2),IC2_p(2,idxfit2),datafilename,'IC2_y_fit',end_frame);
 
-save(fitfn,'IC1_x_fit','IC1_y_fit','IC2_x_fit','IC2_y_fit');
+end

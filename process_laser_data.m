@@ -1,6 +1,14 @@
 %% Processsing laser data
-% this is a list of function primalrily concerned with processing image
-% data and returing the paramters from each image analysed.
+% this function takes calibration data and file locations and processes raw
+% output into thermal images, as well as doing some minor analysis on each
+% frame (eg mean temp, spot radius etc)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% This should only be run for SMALL file sizes - this outputs a lot of
+% extra data and is NOT OPTIMISED FOR LARGE FILES!
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Inputs:
 
@@ -11,7 +19,6 @@
 % folder_name - name of the exact folder with the data in it and also the
 % name of the .mat file which should contain the DAQ data - eg: 
 % '100W_6400us_100000fps'
-
 % NB this folder should contain the following:
 % 100W_6400us_100000fps.mat - DAQ data
 % C001H001S0001.cih - camera 1 meta data
@@ -19,37 +26,35 @@
 % C001H001S0001.mraw - camera 1 recording
 % C002H001S0001.mraw - camera 2 recording
 
+% intensity_ratio - list of wavelength ratios (9415 elements long) 
+% corresponding to the REF_TEMPERATURE values, normally 
+% load('intensity_ratio.mat') is enough, otherwise use Filter.m to generate
+% the list.
 
-function [t_frame, spotradius, meanmidspottemp]=process_laser_data(folder_path,folder_name)
+% fits - a structure holding the correction offsets for each camera and
+% each camera axis (IC1_x, IC1_y, IC2_x, IC2_y)
+
+
+function [processed_images, t_frame, spotradius, meanmidspottemp, boundarytempgradient,IC1_full,IC2_full]=process_laser_data(folder_path,folder_name,intensity_ratio,fits)
 %% Hard Coded stuff
 
 DEFAULT_FILTER_THRESHOLD = 100;
 REF_TEMPERATURE = (293:0.5:5000)';
 
+MELT_THRESHOLD = 1370;
+
 % from IMAGE DATA class
 % Temperature image relative to camera image scale
-RESIZED_SCALE = 4;
-% In micrometer
 ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
-RESIZED_PIXEL_SIZE = ORIGINAL_PIXEL_SIZE / RESIZED_SCALE;
-%from SPOT class
-SIZE_SCALE = (RESIZED_PIXEL_SIZE * 1e3).^2;
+SIZE_SCALE = (ORIGINAL_PIXEL_SIZE)^2;
 
 %% Load calibration
 
 % denote folder with data (should contain .mat *1, .cih *2, .mraw *2)
-%data_folder = 'example_data';
-%data_folder = "A:\Imperial College London\Hooper, Paul A - spots_v3C";
-data_folder = strcat(folder_path,'\',folder_name);
-%mat_folder_name = '\100W_6400us_100000fps.mat';
-mat_folder_name = strcat('\',folder_name,'.mat');
 % load alignment surfaces
-load('fitfn_file');
-
-load('intensity_ratio.mat')
 
 % load cih data (camera information header) - creates class: imagedata
-imagedata = readcih(data_folder);
+imagedata = readcih(strcat(folder_path,'\',folder_name));
 
 % FROM asset.m NOT findspotfit.m:
 % Specify the precision for reading images
@@ -77,10 +82,9 @@ t_frame = round(t_frame,9); %round to ns to avoid rounding errors
 % create meshgrid
 [X,Y]=meshgrid(1:imagedata.Width,1:imagedata.Height);
 
-
 %% load Laser data for Processing
 % Read laser data file:
-[t_daq,Diode,~,~,x,y,~] = importfile(strcat(data_folder,mat_folder_name));
+[t_daq,Diode,~,~,x,y,~] = importfile(strcat(folder_path,'\',folder_name,'\',folder_name,'.mat'));
 
 
 % Create a kaiser filter to smooth DAQ data:
@@ -106,11 +110,14 @@ x_pos = interp1(t_daq,filtfilt(b,1,x(1:end)),t_frame,'linear','extrap');
 frame_number=1;
 %stored images 3D array
 processed_images = zeros(128,128,imagedata.TotalFrames);
+IC1_full = processed_images;
+IC2_full = processed_images;
 %1d vectors of spot stats in each from
 midspottemp = zeros(1,end_frame);
 meanmidspottemp = zeros(1,end_frame);
 peakspottemp = zeros(1,end_frame);
 spotradius = zeros(1,end_frame);
+boundarytempgradient = zeros(1,end_frame);
 
 % load blocks loop
 for j=1:blockSize:end_frame
@@ -131,8 +138,8 @@ for j=1:blockSize:end_frame
         
         %CAM1 find offset
         %find spot offsets (in pixels?) for current xy scan pos
-        Xe=feval(IC1_x_fit,x_pos(frame_number),y_pos(frame_number)); % Evaluate obtained polynomial function to find offset
-        Ye=feval(IC1_y_fit,x_pos(frame_number),y_pos(frame_number)); % Evaluate obtained polynomial function to find offset
+        Xe=feval(fits.IC1_x,x_pos(frame_number),y_pos(frame_number)); % Evaluate obtained polynomial function to find offset
+        Ye=feval(fits.IC1_y,x_pos(frame_number),y_pos(frame_number)); % Evaluate obtained polynomial function to find offset
         %apply offset, X1 and y1 contain grids of pixel numbers with 0,0 at the
         %laser spot centre
         X1=X-Xe+imagedata.Width/2;
@@ -140,14 +147,19 @@ for j=1:blockSize:end_frame
         
         %CAM2 find offset
         % Find offset in cam 2 xy positions
-        Xe=feval(IC2_x_fit,x_pos(frame_number),y_pos(frame_number)); % Evaluate obtained polynomial function to find offset
-        Ye=feval(IC2_y_fit,x_pos(frame_number),y_pos(frame_number)); % Evaluate obtained polynomial function to find offset
+        Xe=feval(fits.IC2_x,x_pos(frame_number),y_pos(frame_number)); % Evaluate obtained polynomial function to find offset
+        Ye=feval(fits.IC2_y,x_pos(frame_number),y_pos(frame_number)); % Evaluate obtained polynomial function to find offset
         X2=X-Xe+imagedata.Width/2;
         Y2=Y-Ye+imagedata.Height/2;
         
         % Find resized images without shifts
         IC1f=interp2(X1,Y1,double(IC1(:,:,i)),X,Y);
         IC2f=interp2(X2,Y2,double(IC2(:,:,i)),X,Y);
+        
+        
+        IC1_full(:,:,frame_number) = IC1f;
+        IC2_full(:,:,frame_number) = IC2f;
+
         
 %%%%% RATIO TO TEMP NEEDS TO BE RE_MADE %%%%%%%%%        %calculate temp image from two images
         % Find ratio between camera images intensities
@@ -162,7 +174,7 @@ for j=1:blockSize:end_frame
         % threshold value. If lower, it means the pixel is noisy and will be
         % registered as 293K
         immultiply = IC1f .* IC2f;
-        image_temp(immultiply < DEFAULT_FILTER_THRESHOLD) = NaN;
+        %image_temp(immultiply < DEFAULT_FILTER_THRESHOLD) = NaN;
 
         % save image to file (append?? - cannot be stored in memory)
         % for now simply append - to 3D array (small enough for sample data
@@ -171,7 +183,10 @@ for j=1:blockSize:end_frame
         midspottemp(frame_number) = findMidSpotTemp(image_temp);
         meanmidspottemp(frame_number) = findMeanMidSpotTemp(image_temp);
         peakspottemp(frame_number) = findPeakTemp(image_temp);
-        spotradius(frame_number) = findSpotRadius(image_temp);
+        spotradius(frame_number) = findSpotRadius(image_temp, MELT_THRESHOLD);
+        %temp_diff = 150;    
+        dr = findSpotRadius(image_temp, MELT_THRESHOLD-150)-findSpotRadius(image_temp, MELT_THRESHOLD+150);
+        boundarytempgradient(frame_number) = (2*300)/dr;
         
     end
 end
@@ -194,13 +209,9 @@ function spotsize = findSpotSize(immultiply)
 %need to check what SIZE_SCALE is
 DEFAULT_FILTER_THRESHOLD = 100;
 % from IMAGE DATA class
-% Temperature image relative to camera image scale
-RESIZED_SCALE = 4;
-% In micrometer
+% In meters
 ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
-RESIZED_PIXEL_SIZE = ORIGINAL_PIXEL_SIZE / RESIZED_SCALE;
-%from SPOT class
-SIZE_SCALE = (RESIZED_PIXEL_SIZE * 1e3).^2;
+SIZE_SCALE = (ORIGINAL_PIXEL_SIZE)^2;
 spotsize = sum(sum(immultiply > DEFAULT_FILTER_THRESHOLD)) * SIZE_SCALE;
 end
 
@@ -211,19 +222,13 @@ end
 
 
 % Find spot size
-function spotradius = findSpotRadius(tempimg)
+function spotradius = findSpotRadius(tempimg, tempthreshold)
 %need to check what SIZE_SCALE is
-MELT_THRESHOLD = 1370;
 % from IMAGE DATA class
-% Temperature image relative to camera image scale
-RESIZED_SCALE = 4;
-% In micrometer
 ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
-RESIZED_PIXEL_SIZE = ORIGINAL_PIXEL_SIZE / RESIZED_SCALE;
-%from SPOT class
-SIZE_SCALE = (RESIZED_PIXEL_SIZE * 1e3).^2;
+SIZE_SCALE = (ORIGINAL_PIXEL_SIZE)^2;
 
-spotarea = sum(sum(tempimg > MELT_THRESHOLD)) * SIZE_SCALE;
+spotarea = sum(sum(tempimg > tempthreshold)) * SIZE_SCALE;
 
 spotradius = sqrt(spotarea/pi);
 end
