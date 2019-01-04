@@ -127,6 +127,7 @@ boundarytempgradient = zeros(1,end_frame);
 
 % load blocks loop
 for j=1:blockSize:end_frame
+    %first and last frame to be loaded
     if frame_number+1+blockSize > end_frame
         frange = [frame_number+1,end_frame];
         blockSize=range(frange);
@@ -137,7 +138,6 @@ for j=1:blockSize:end_frame
     %read in frame from mraw files for each camera
     IC1=readmraw(imagedata.folderName,imagedata,frange,1);
     IC2=readmraw(imagedata.folderName,imagedata,frange,2);
-    
     % process frames loop
     for i=1:blockSize
         frame_number = frame_number+1;
