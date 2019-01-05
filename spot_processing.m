@@ -89,8 +89,9 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
     % offset to rest of images assuming it is the same.
 
     
-
-    results.pyro = zeros(128,128,imagedata.TotalFrames);
+    resamplelevel = 5;
+    
+    results.pyro = zeros(128*resamplelevel,128*resamplelevel,imagedata.TotalFrames);
 
     results.IC1s = results.pyro;
     results.IC2s = results.pyro;
@@ -104,9 +105,10 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
     frame_number=1;
     filt=(fspecial('gaussian', 7,1));
     odds = [1:2:1000];
+
     
     % create meshgrid
-    [X,Y]=meshgrid(1:imagedata.Width,1:imagedata.Height);
+    [X,Y]=meshgrid(1:(imagedata.Width*resamplelevel),1:(imagedata.Height*resamplelevel));
 
     % load blocks loop
     for j=1:blockSize:end_frame
@@ -134,22 +136,36 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
                 
 
                 %process camera 1
-
+                
+                %boost resolution
+                F = griddedInterpolant(double(IC1.raw(:,:,i)));
+                [sx,sy,~] = size(IC1.raw(:,:,i));
+                xq = (0:1/resamplelevel:sx)';
+                yq = (0:1/resamplelevel:sy)';
+                F.Method = 'linear';
+                resample = uint16(F({xq,yq}));
+                IC1.resample(:,:,frame_number) = resample(1:imagedata.Height*resamplelevel,1:imagedata.Height*resamplelevel,frame_number);
+                
+                % find peak, compensate and store
                 intensities = [];
-                p1=FastPeakFind(IC1.raw(:,:,frame_number),DEFAULT_FILTER_THRESHOLD,filt,3,2);
+                
+                p1=FastPeakFind(IC1.resample(:,:,frame_number),DEFAULT_FILTER_THRESHOLD,filt,3,2);
                 for q = 1:2:size(p1)
-                    intensities = [intensities,IC1.raw(round(p1(q+1)),round(p1(q)),frame_number)];
+                    intensities = [intensities,IC1.resample(round(p1(q+1)),round(p1(q)),frame_number)];
                 end
                 true_peak = find(intensities==max(intensities));
                 p1=p1(odds(true_peak):odds(true_peak)+1);
                 IC1.x_store = [IC1.x_store,p1(1)];
                 IC1.y_store = [IC1.y_store,p1(2)];
-                X1=X-p1(1)+imagedata.Width/2;
-                Y1=Y-p1(2)+imagedata.Height/2;
-                IC1_new=interp2(X1,Y1,double(IC1.raw(:,:,i)),X,Y);
-                results.IC1s(:,:,frame_number) = IC1_new;
+                X1=X-p1(1)+(imagedata.Width*resamplelevel)/2;
+                Y1=Y-p1(2)+(imagedata.Height*resamplelevel)/2;
+                results.IC1s(:,:,frame_number)=interp2(X1,Y1,double(IC1.resample(:,:,i)),X,Y);
+
                 
                 %process camera 2
+                
+                %boost resolution
+                
                 
                 intensities = [];                
                 p2=FastPeakFind(IC2.raw(:,:,frame_number),DEFAULT_FILTER_THRESHOLD,filt,3,2);
