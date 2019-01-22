@@ -43,14 +43,6 @@
 % meta data: .meta : .frame_rate .length and .date
 
 function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
-    %% Hard Coded stuff
-    MELT_THRESHOLD = 1370;
-
-    % from IMAGE DATA class
-    % Temperature image relative to camera image scale
-    ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
-    SIZE_SCALE = (ORIGINAL_PIXEL_SIZE)^2;
-
     %% Load calibration for MRAWs
 
     % denote folder with data (should contain .mat *1, .cih *2, .mraw *2)
@@ -72,7 +64,7 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
     end_frame = imagedata.TotalFrames - 1;
 
     % number to images to be process per block (all at once crashes computer?)
-    blockSize = 50;
+    blockSize = 20;
 
 %% Frame timings
     
@@ -85,7 +77,7 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
     % offset to rest of images assuming it is the same.
 
     
-    resamplelevel = 2;
+    resamplelevel = 3;
     
     framesize = imagedata.Width*resamplelevel; %assume square frame
     
@@ -95,21 +87,19 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
     results.IC2s = results.pyro;
     results.Otsu_image = results.pyro;
     results.spotradius = zeros(1,imagedata.TotalFrames);
-
-    %midspottemp = zeros(1,end_frame);
-    % = zeros(1,end_frame);
-    %peakspottemp = zeros(1,end_frame);
-    %spotradius = zeros(1,end_frame);
-    %boundarytempgradient = zeros(1,end_frame);
+    results.G = zeros(1,imagedata.TotalFrames);
+    results.ave = zeros(1,imagedata.TotalFrames);
+    results.max = zeros(1,imagedata.TotalFrames);
 
     frame_number=1;
-    filt=(fspecial('gaussian', 7,1));
-    odds = [1:2:1000];
-
     
     % create meshgrid
     [X,Y]=meshgrid(1:(framesize),1:(framesize));
 
+    
+    % Flag:
+    results.too_short=0;
+    
     % load blocks loop
     for j=1:blockSize:end_frame
         if frame_number+1+blockSize > end_frame
@@ -140,6 +130,12 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
                 IC1.resample(:,:,frame_number)=ResBoost(IC1.raw(:,:,i),resamplelevel);
                 % find peak, translate image and store offset
                 [x1_pos,y1_pos,IC1.x_store,IC1.y_store] = PeakFinder(IC1.resample(:,:,frame_number),IC1.x_store,IC1.y_store);
+                
+                if isempty(x1_pos) | isempty(y1_pos)
+                    results.too_short=1;
+                    break
+                end
+                
                 X1=X-x1_pos+framesize/2;
                 Y1=Y-y1_pos+framesize/2;
                 results.IC1s(:,:,frame_number)=interp2(X1,Y1,double(IC1.resample(:,:,i)),X,Y);
@@ -150,6 +146,12 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
                 IC2.resample(:,:,frame_number)=ResBoost(IC2.raw(:,:,i),resamplelevel);
                 % find peak, translate image and store offset
                 [x2_pos,y2_pos,IC2.x_store,IC2.y_store] = PeakFinder(IC2.resample(:,:,frame_number),IC2.x_store,IC2.y_store);
+                
+                if isempty(x2_pos) | isempty(y2_pos)
+                    results.too_short=1;
+                    break
+                end
+                
                 X2=X-x2_pos+framesize/2;
                 Y2=Y-y2_pos+framesize/2;
                 results.IC2s(:,:,frame_number)=interp2(X2,Y2,double(IC2.resample(:,:,i)),X,Y);
@@ -157,10 +159,14 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
                 % temperature comparison
                 results.pyro(:,:,frame_number) = Pyro(results.IC1s(:,:,frame_number),results.IC2s(:,:,frame_number),intensity_ratio);
                 
-                %analysis:
-                results.spotradius(frame_number) = findSpotRadius(results.pyro(:,:,frame_number), MELT_THRESHOLD);
-                
+                %analysis:                
+                [results.Otsu_image(:,:,frame_number),results.spotradius(frame_number),results.G(frame_number),results.roundness(frame_number),results.ave(frame_number),results.max(frame_number)]=frame_analysis(results.pyro(:,:,frame_number));
+                                
                 frame_number = frame_number+1;               
+            end
+            
+            if results.too_short
+                break
             end
             
             IC1.x_mean = mean(IC1.x_store);
@@ -191,48 +197,75 @@ function [results]=spot_processing(folder_path,folder_name,intensity_ratio)
                 % temperature comparison
                 results.pyro(:,:,frame_number) = Pyro(results.IC1s(:,:,frame_number),results.IC2s(:,:,frame_number),intensity_ratio);
                 
-                %analysis:
-                results.spotradius(frame_number) = findSpotRadius(results.pyro(:,:,frame_number), MELT_THRESHOLD);
-                
-                bw = imbinarize(results.pyro(:,:,frame_number));
-                bw = bwareaopen(bw,5);
-                cc = bwconncomp(bw,4)
+                %analysis:                
+                [results.Otsu_image(:,:,frame_number),results.spotradius(frame_number),results.G(frame_number),results.roundness(frame_number),results.ave(frame_number),results.max(frame_number)]=frame_analysis(results.pyro(:,:,frame_number));
+
                 frame_number = frame_number+1;
-                graindata = regionprops(cc,'basic');
-                grain_areas = [graindata.Area];
-                [max_area, idx] = max(grain_areas)
-                grain = false(size(bw));
-                grain(cc.PixelIdxList{idx}) = true;
-                Otsu_image = results.pyro(:,:,frame_number);
-                Otsu_image(grain==0)=0;
-                results.Otsu_image(:,:,frame_number)=Otsu_image;
+
             end
         end
-
-%         %midspottemp(frame_number) = findMidSpotTemp(image_temp);
-%         %meanmidspottemp(frame_number) = findMeanMidSpotTemp(image_temp);
-%         %peakspottemp(frame_number) = findPeakTemp(image_temp);
-%         %spotradius(frame_number) = findSpotRadius(image_temp, MELT_THRESHOLD);
-%         %temp_diff = 150;    
-%         %dr = findSpotRadius(image_temp, MELT_THRESHOLD-150)-findSpotRadius(image_temp, MELT_THRESHOLD+150);
-%         %boundarytempgradient(frame_number) = (2*300)/dr;
     end
+    
+    % extract R
+    results.R = BoundarySpeed(results.spotradius,results.t_frame);
+    
 end
 
-function []=frame_analysis(thermal_image)
-    
+function [Otsu_image,spotradius,G,roundness,ave,max]=frame_analysis(thermal_image)
+
+    MELT_THRESHOLD = 1370+273;
+    bw = imbinarize(thermal_image);
+    bw = bwareaopen(bw,5);
+    cc = bwconncomp(bw,4);
+    graindata = regionprops(cc,'Area','Perimeter','BoundingBox');
+    [img_size,~] = size(thermal_image);
+    idx = 0;
+    for i = 1:length(graindata)
+        boundingbox = graindata(i).BoundingBox;
+        centre = img_size/2;
+        if boundingbox(1)<centre & (boundingbox(1)+boundingbox(3))>centre & boundingbox(2)< centre & (boundingbox(2)+boundingbox(4))>centre
+            idx = i;
+            break
+        end
+    end
+    if idx==0
+        Otsu_image = thermal_image;
+        spotradius = 0;
+        G=0;
+        roundness=0;
+        ave = 0;
+        max = 0;
+    else
+        grain = false(size(bw));
+        grain(cc.PixelIdxList{idx}) = true;
+        Otsu_image = thermal_image;
+        Otsu_image(grain==0)=0;
+        % further analysis:
+        % measure roundness
+        roundness = 4*pi*graindata(idx).Area/graindata(idx).Perimeter^2;
+        % spot radius (at melting temp)
+        spotradius = findSpotRadius(Otsu_image, MELT_THRESHOLD);
+        % temperature gradient (using Phoooper histogram method)
+        G = BoundaryGrad(Otsu_image,MELT_THRESHOLD,300);
+        % find max of spot
+        Max = max(max(Otsu_image));
+        Otsu_image(Otsu_image == 0) = nan;
+        Ave=mean(mean(Otsu_image,'omitnan'),'omitnan');
+    end
 end
 
 function [x_pos,y_pos,x_store,y_store] = PeakFinder(img,x_store,y_store)
     % find peaks in image using Fast Peak find and returns the x and y
     % position of the highest one. Append to x and y lists is they are
     % entered.
-    FILTER_THRESHOLD = 300;
+    ave = mean(mean(img(img~=0)));
+    FILTER_THRESHOLD = 25;
+    thresh = ave*FILTER_THRESHOLD;
     filt=(fspecial('gaussian', 7,1));
-    odds = [1:2:1000];
+    odds = 1:2:1000;
     intensities = [];
 
-    peaks=FastPeakFind(img,FILTER_THRESHOLD,filt,3,2);
+    peaks=FastPeakFind(img,thresh,filt,3,2);
     %assert(length(peaks)>=2,'No peaks found')
     for q = 1:2:size(peaks)
         intensities = [intensities,img(round(peaks(q+1)),round(peaks(q)))];
@@ -258,6 +291,7 @@ function thermal_image = Pyro(img1,img2,intensity_ratio)
     imratio(isnan(imratio)) = 0;
     imratio(isinf(imratio)) = 0;
     immultiply = img1.* img2;
+    ave = mean(mean(immultiply));
     imratio(immultiply < FILTER_THRESHOLD) = 0;
 
     thermal_image = interp1(intensity_ratio,REF_TEMPERATURE,imratio);
@@ -276,6 +310,54 @@ function resample = ResBoost(raw_image,resamplelevel)
     resample = resample(1:height,1:height);
 end
 
+% Find spot size
+function spotradius = findSpotRadius(tempimg, tempthreshold)
+%need to check what SIZE_SCALE is
+% from IMAGE DATA class
+ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
+[img_size,~] = size(tempimg);
+RESAMPLED_PIXEL_SIZE = 128/img_size * ORIGINAL_PIXEL_SIZE;
+SIZE_SCALE = (RESAMPLED_PIXEL_SIZE)^2;
+
+spotarea = sum(sum(tempimg > tempthreshold)) * SIZE_SCALE;
+
+spotradius = sqrt(spotarea/pi);
+end
+
+function G = BoundaryGrad(img,thresh,div)
+    [img_size,~] =  size(img);
+    ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
+    RESAMPLED_PIXEL_SIZE = 128/img_size * ORIGINAL_PIXEL_SIZE;
+    SIZE_SCALE = (RESAMPLED_PIXEL_SIZE)^2;
+    
+    img_as_line = reshape(img,[img_size^2,1]);
+    temp = sort(img_as_line(~isnan(img_as_line)),'descend');
+
+    x = sqrt([1:length(temp)]*SIZE_SCALE/pi);
+    p_index = find(temp>=(thresh-div) & temp<=(thresh+div/2));
+    if length(p_index)<=10
+        G=0;
+    else
+        p_boundary = sort(temp(p_index),'descend');
+        f=fit(p_boundary,x(p_index).','poly2');
+        fx = differentiate(f, 1600);
+        G=1/fx;
+    end
+end
+
+function R = BoundarySpeed(spotradius,t_frame)
+
+    Fs = 1000;
+    fc = 10;
+    Wn = (2/Fs)*fc;
+    order = 20;
+    b = fir1(order,Wn,'low',kaiser(order+1,2));
+    
+    y = filtfilt(b,1,spotradius);
+
+    R = abs(diff(y(2:end))./diff(t_frame));
+end
+
 function midtemp = findMidSpotTemp(imgtemp)
     %midtemp = imgtemp(size(imgtemp,1)/2,size(imgtemp,2)/2);
     midtemp = imgtemp(38,72);
@@ -287,31 +369,7 @@ function meanmidtemp = findMeanMidSpotTemp(imgtemp)
     meanmidtemp = mean(mean(imgtemp(37:39,71:73)));
 end
 
-% Find spot size
-function spotsize = findSpotSize(immultiply)
-%need to check what SIZE_SCALE is
-DEFAULT_FILTER_THRESHOLD = 100;
-% from IMAGE DATA class
-% In meters
-ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
-SIZE_SCALE = (ORIGINAL_PIXEL_SIZE)^2;
-spotsize = sum(sum(immultiply > DEFAULT_FILTER_THRESHOLD)) * SIZE_SCALE;
-end
-
 % Find peak temp in image
 function peaktemp = findPeakTemp(imgtemp)
 peaktemp = max(max(imgtemp));
-end
-
-
-% Find spot size
-function spotradius = findSpotRadius(tempimg, tempthreshold)
-%need to check what SIZE_SCALE is
-% from IMAGE DATA class
-ORIGINAL_PIXEL_SIZE = 26.3e-6; % this is actually the source pixel size (not the sensor pixel size)
-SIZE_SCALE = (ORIGINAL_PIXEL_SIZE)^2;
-
-spotarea = sum(sum(tempimg > tempthreshold)) * SIZE_SCALE;
-
-spotradius = sqrt(spotarea/pi);
 end
